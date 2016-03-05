@@ -95,7 +95,7 @@ mentions <- df %>%
          text = mt %>% map_chr2("text")) %>%
   select(-replyToSID, -mt)
 mentions %>%
-  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(37))
+  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(30))
 
 #' Clearly I will be in for some pain if I need to work with text with emoji.
 #' Hopefully those will get filtered out and I can ignore this problem!
@@ -111,10 +111,16 @@ mentions %>%
 #                select(id, screenName, keep, text))
 ss <- gs_title("mentions_for_manual_curation")
 ss %>% gs_browse()
-(n_curated <- ss$ws$row_extent - 1) # there's a header row
-if (nrow(mentions) > n_curated && interactive()) {
-  mentions_curated <- ss %>%
-    gs_read(col_types = "cclc")
+mentions_curated <- ss %>%
+  gs_read(col_types = "cclc")
+mentions_curated %>%
+  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(30))
+(n_curated <- nrow(mentions_curated))
+nrow(mentions)
+(n_need_curation <- nrow(mentions) - n_curated)
+if (n_need_curation > 0 && interactive()) {
+  ## obviously I run this by hand
+  ## but I need to keep it from running when I knit
   mentions_for_curation <- mentions %>%
     left_join(mentions_curated %>% select(id, keep)) %>%
     select(id, screenName, keep, text)
@@ -122,12 +128,17 @@ if (nrow(mentions) > n_curated && interactive()) {
     gs_edit_cells(input = mentions_for_curation)
   message("Tweets needing a keep decision: ",
           sum(is.na(mentions_for_curation$keep)))
-  ## I manually worked on the `keep` column in the browser at this point
-  mentions <- ss %>%
-    gs_read(col_types = "cclc") %>%
-    filter(keep)
+  ## HERE IS WHERE I POPULATE EMPTY CELLS IN THE `keep` COLUMN IN THE BROWSER!!!
 }
+mentions <- ss %>%
+  gs_read(col_types = "cclc") %>%
+  filter(keep) %>%
+  select(-keep)
+mentions %>%
+  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(30))
 
+#' OK I'm satisfied I've fished the relevant replies out of my mentions.
+#'
 #' I also noticed that anyone who *quoted* the tweet wasn't showing up in the
 #' mentions. How do I get those tweets? Because the added comments are basically
 #' the same as these replies. Back to
@@ -175,11 +186,11 @@ quote_tweet_curl <- jsonlite::fromJSON("example_quote.json")
 names(quote_tweet_curl)
 quote_tweet_curl$quoted_status_id_str
 identical(quote_tweet_curl$quoted_status_id_str, target_tweet_id)
+(target_tweet_short_url <- quote_tweet_curl$entities$urls$url)
+if (interactive()) browseURL(target_tweet_short_url)
 
 #' Here is my target tweet's short url: <https://t.co/ehskwqtZPf>. Yes this
 #' seems to link to my target tweet. Good.
-(target_tweet_short_url <- quote_tweet_curl$entities$urls$url)
-if (interactive()) browseURL(target_tweet_short_url)
 
 #' How do I search for tweets whose text contains my short url?
 (st <- searchTwitter(target_tweet_short_url))
@@ -209,13 +220,13 @@ quotes <- data_frame(qt = qt) %>%
          text = qt %>% map_chr2("text")) %>%
   select(-qt)
 quotes %>%
-  mutate(text = text %>% ellipsize(37))
+  mutate(text = text %>% ellipsize(30))
 
 #' Combine true replies and quotes.
 tweets <- mentions %>%
   bind_rows(quotes)
 tweets %>%
-  mutate(text = text %>% ellipsize(37))
+  mutate(text = text %>% ellipsize(30))
 
 #' Write them out.
 write.csv(tweets, "tweets.csv", row.names = FALSE)

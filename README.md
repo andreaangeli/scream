@@ -1,7 +1,7 @@
 Get replies and quotes of a tweet
 ================
 jenny
-Fri Mar 4 23:21:16 2016
+Sat Mar 5 08:58:14 2016
 
 ![](troubleshooting-tips-tweet-smaller.png) I [tweeted some \#rstats troubleshooting tips](https://twitter.com/JennyBryan/status/704779515558400000), that were at least semi-serious. It seemed to strike a chord. As [Clint Weathers aka @zenrhino](https://twitter.com/zenrhino/status/704791544054722564) pointed out, there is solace in "shared suffering". The replies are pretty funny and wise, so this was a good excuse to make my first -- and possibly last! -- foray into the Twitter API, in order to get them. Load some packages.
 
@@ -68,7 +68,7 @@ mt <- mentions(n = 200, sinceID = target_tweet_id)
 length(mt)
 ```
 
-    ## [1] 120
+    ## [1] 126
 
 ``` r
 tail(mt)
@@ -156,7 +156,7 @@ mentions <- df %>%
          text = mt %>% map_chr2("text")) %>%
   select(-replyToSID, -mt)
 mentions %>%
-  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(37))
+  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(30))
 ```
 
     ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
@@ -180,21 +180,24 @@ mentions %>%
     ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
     ## perhaps you should try calling stri_enc_toutf8()
 
-    ## Source: local data frame [120 x 3]
+    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
+    ## perhaps you should try calling stri_enc_toutf8()
+
+    ## Source: local data frame [126 x 3]
     ## 
-    ##                    id screenName                                  text
-    ##                 (chr)      (chr)                                 (chr)
-    ## 1  705963994977333249 bhaskar_vk  @AmeliaMN That is really really sad.
-    ## 2  705963145702084608   AmeliaMN uuugh. so you're saying I have thing…
-    ## 3  705950403704201216  sleight82 @UWCSSS dang. Been following from af…
-    ## 4  705949598171303936      jrnld        @JennyBryan Want to do dinner?
-    ## 5  705941645062217729    PBarmby I am totally figuring out how to wor…
-    ## 6  705934677761101826 treycausey @UWCSSS Argh, I cannot make your tal…
-    ## 7  705800022474911745     UWCSSS @JennyBryan on Happy Git and GitHub …
-    ## 8  705789525348507649     lapply I was looking for a dataset for a gg…
-    ## 9  705586264926388224 treycausey @kwbroman @hadleywickham "Assume for…
-    ## 10 705525090902011904 sjmgarnier                That's not helpful :-)
-    ## ..                ...        ...                                   ...
+    ##                    id   screenName                           text
+    ##                 (chr)        (chr)                          (chr)
+    ## 1  706137621500592129   treycausey yBryan Yes, I believe I can d…
+    ## 2  706135577796730880      arnicas @AmeliaMN it’s not just acade…
+    ## 3  706123636105736192     hrbrmstr                             NA
+    ## 4  706114506875731968     nickteff @jason_bailey I'm confused. W…
+    ## 5  706081554884386816 jason_bailey                      o dear...
+    ## 6  706029059885678592 jason_bailey I can't even imagine what tha…
+    ## 7  705963994977333249   bhaskar_vk @AmeliaMN That is really real…
+    ## 8  705963145702084608     AmeliaMN uuugh. so you're saying I hav…
+    ## 9  705950403704201216    sleight82 @UWCSSS dang. Been following …
+    ## 10 705949598171303936        jrnld @JennyBryan Want to do dinner?
+    ## ..                ...          ...                            ...
 
 Clearly I will be in for some pain if I need to work with text with emoji. Hopefully those will get filtered out and I can ignore this problem!
 
@@ -218,15 +221,57 @@ ss %>% gs_browse()
     ## NULL
 
 ``` r
-(n_curated <- ss$ws$row_extent - 1) # there's a header row
+mentions_curated <- ss %>%
+  gs_read(col_types = "cclc")
 ```
 
-    ## [1] 120
+    ## Accessing worksheet titled 'Sheet1'.
+
+    ## No encoding supplied: defaulting to UTF-8.
 
 ``` r
-if (nrow(mentions) > n_curated && interactive()) {
-  mentions_curated <- ss %>%
-    gs_read(col_types = "cclc")
+mentions_curated %>%
+  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(30))
+```
+
+    ## Source: local data frame [126 x 4]
+    ## 
+    ##                    id   screenName  keep                           text
+    ##                 (chr)        (chr) (lgl)                          (chr)
+    ## 1  706137621500592129   treycausey FALSE yBryan Yes, I believe I can d…
+    ## 2  706135577796730880      arnicas FALSE @AmeliaMN it’s not just acade…
+    ## 3  706123636105736192     hrbrmstr FALSE not even a �� for the creator…
+    ## 4  706114506875731968     nickteff FALSE @jason_bailey I'm confused. W…
+    ## 5  706081554884386816 jason_bailey FALSE                      o dear...
+    ## 6  706029059885678592 jason_bailey FALSE I can't even imagine what tha…
+    ## 7  705963994977333249   bhaskar_vk FALSE @AmeliaMN That is really real…
+    ## 8  705963145702084608     AmeliaMN FALSE uuugh. so you're saying I hav…
+    ## 9  705950403704201216    sleight82 FALSE @UWCSSS dang. Been following …
+    ## 10 705949598171303936        jrnld FALSE @JennyBryan Want to do dinner?
+    ## ..                ...          ...   ...                            ...
+
+``` r
+(n_curated <- nrow(mentions_curated))
+```
+
+    ## [1] 126
+
+``` r
+nrow(mentions)
+```
+
+    ## [1] 126
+
+``` r
+(n_need_curation <- nrow(mentions) - n_curated)
+```
+
+    ## [1] 0
+
+``` r
+if (n_need_curation > 0 && interactive()) {
+  ## obviously I run this by hand
+  ## but I need to keep it from running when I knit
   mentions_for_curation <- mentions %>%
     left_join(mentions_curated %>% select(id, keep)) %>%
     select(id, screenName, keep, text)
@@ -234,12 +279,39 @@ if (nrow(mentions) > n_curated && interactive()) {
     gs_edit_cells(input = mentions_for_curation)
   message("Tweets needing a keep decision: ",
           sum(is.na(mentions_for_curation$keep)))
-  ## I manually worked on the `keep` column in the browser at this point
-  mentions <- ss %>%
-    gs_read(col_types = "cclc") %>%
-    filter(keep)
+  ## HERE IS WHERE I POPULATE EMPTY CELLS IN THE `keep` COLUMN IN THE BROWSER!!!
 }
+mentions <- ss %>%
+  gs_read(col_types = "cclc") %>%
+  filter(keep) %>%
+  select(-keep)
 ```
+
+    ## Accessing worksheet titled 'Sheet1'.
+    ## No encoding supplied: defaulting to UTF-8.
+
+``` r
+mentions %>%
+  mutate(text = text %>% substr(13, 140) %>% trimws() %>% ellipsize(30))
+```
+
+    ## Source: local data frame [35 x 3]
+    ## 
+    ##                    id      screenName                           text
+    ##                 (chr)           (chr)                          (chr)
+    ## 1  704818137456353281          tjmahr would also add: Avoid setting…
+    ## 2  704815949845819394          tjmahr this is great. I hit ctrl shi…
+    ## 3  704813442348093442       jaimedash @gvwilson gah they sound bad.…
+    ## 4  704811393074249728    pasqui_dente                        class()
+    ## 5  704809712139821056            tpoi @RallidaeRule And "look on St…
+    ## 6  704809290364805120            tpoi @RallidaeRule But in all seri…
+    ## 7  704809092016164865            tpoi @RallidaeRule CARVE THEM IN Y…
+    ## 8  704808779997548545 henrikbengtsson     "help the helper help you"
+    ## 9  704807505935921153   JHunterUnited @gvwilson reminds one of the …
+    ## 10 704805308909146112      Chr_Koenig "add more backslashes" ... ju…
+    ## ..                ...             ...                            ...
+
+OK I'm satisfied I've fished the relevant replies out of my mentions.
 
 I also noticed that anyone who *quoted* the tweet wasn't showing up in the mentions. How do I get those tweets? Because the added comments are basically the same as these replies. Back to [stackoverflow](http://stackoverflow.com/questions/31373259/how-to-find-all-retweet-with-comments-for-a-particular-tweet-using-api)! More API disappointment, more constructive workarounds:
 
@@ -265,7 +337,7 @@ str(target_tweet)
     ##  $ replyToUID   : chr(0) 
     ##  $ statusSource : chr "<a href=\"http://tapbots.com/software/tweetbot/mac\" rel=\"nofollow\">Tweetbot for Mac</a>"
     ##  $ screenName   : chr "JennyBryan"
-    ##  $ retweetCount : num 101
+    ##  $ retweetCount : num 103
     ##  $ isRetweet    : logi FALSE
     ##  $ retweeted    : logi FALSE
     ##  $ longitude    : chr(0) 
@@ -373,8 +445,6 @@ identical(quote_tweet_curl$quoted_status_id_str, target_tweet_id)
 
     ## [1] TRUE
 
-Here is my target tweet's short url: <https://t.co/ehskwqtZPf>. Yes this seems to link to my target tweet. Good.
-
 ``` r
 (target_tweet_short_url <- quote_tweet_curl$entities$urls$url)
 ```
@@ -385,7 +455,7 @@ Here is my target tweet's short url: <https://t.co/ehskwqtZPf>. Yes this seems t
 if (interactive()) browseURL(target_tweet_short_url)
 ```
 
-How do I search for tweets whose text contains my short url?
+Here is my target tweet's short url: <https://t.co/ehskwqtZPf>. Yes this seems to link to my target tweet. Good. How do I search for tweets whose text contains my short url?
 
 ``` r
 (st <- searchTwitter(target_tweet_short_url))
@@ -412,26 +482,25 @@ quotes <- data_frame(qt = qt) %>%
          text = qt %>% map_chr2("text")) %>%
   select(-qt)
 quotes %>%
-  mutate(text = text %>% ellipsize(37))
+  mutate(text = text %>% ellipsize(30))
 ```
 
     ## Source: local data frame [12 x 3]
     ## 
-    ##                    id      screenName
-    ##                 (chr)           (chr)
-    ## 1  705444762917199873     birderboone
-    ## 2  704790044570071040       eagereyes
-    ## 3  704996431346737152        jasdumas
-    ## 4  704780518081077248   EamonCaddigan
-    ## 5  704788431466053632  pureblissofsun
-    ## 6  704787612498857984    pasqui_dente
-    ## 7  704914687931056130    satheeshbhoj
-    ## 8  704798446297808896      dangerpeel
-    ## 9  705032096838844417 ByerlyElizabeth
-    ## 10 704786762955137024    statsforbios
-    ## 11 704792804673744896     HappyRrobot
-    ## 12 705155473314586624 oMarceloVentura
-    ## Variables not shown: text (chr).
+    ##                    id      screenName                           text
+    ##                 (chr)           (chr)                          (chr)
+    ## 1  705444762917199873     birderboone Great advice. R's tendency to…
+    ## 2  704790044570071040       eagereyes “Add more backslashes” is the…
+    ## 3  704996431346737152        jasdumas reading is essential, also he…
+    ## 4  704780518081077248   EamonCaddigan "Read the help manual" is con…
+    ## 5  704788431466053632  pureblissofsun str() always before you run m…
+    ## 6  704787612498857984    pasqui_dente Nice Job! https://t.co/xoYnRx…
+    ## 7  704914687931056130    satheeshbhoj Using this in my upcoming cla…
+    ## 8  704798446297808896      dangerpeel @EveryLilac  https://t.co/UKj…
+    ## 9  705032096838844417 ByerlyElizabeth I would have started the list…
+    ## 10 704786762955137024    statsforbios Yes. Would add class() to the…
+    ## 11 704792804673744896     HappyRrobot   Whoa https://t.co/wHoQD2OzcY
+    ## 12 705155473314586624 oMarceloVentura "try it with the iris data"  …
 
 Combine true replies and quotes.
 
@@ -439,45 +508,24 @@ Combine true replies and quotes.
 tweets <- mentions %>%
   bind_rows(quotes)
 tweets %>%
-  mutate(text = text %>% ellipsize(37))
+  mutate(text = text %>% ellipsize(30))
 ```
 
-    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
-    ## perhaps you should try calling stri_enc_toutf8()
-
-    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
-    ## perhaps you should try calling stri_enc_toutf8()
-
-    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
-    ## perhaps you should try calling stri_enc_toutf8()
-
-    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
-    ## perhaps you should try calling stri_enc_toutf8()
-
-    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
-    ## perhaps you should try calling stri_enc_toutf8()
-
-    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
-    ## perhaps you should try calling stri_enc_toutf8()
-
-    ## Warning in stri_length(string): invalid UTF-8 byte sequence detected.
-    ## perhaps you should try calling stri_enc_toutf8()
-
-    ## Source: local data frame [132 x 3]
+    ## Source: local data frame [47 x 3]
     ## 
-    ##                    id screenName                                  text
-    ##                 (chr)      (chr)                                 (chr)
-    ## 1  705963994977333249 bhaskar_vk @JennyBryan @AmeliaMN That is really…
-    ## 2  705963145702084608   AmeliaMN @JennyBryan uuugh. so you're saying …
-    ## 3  705950403704201216  sleight82 @JennyBryan @UWCSSS dang. Been follo…
-    ## 4  705949598171303936      jrnld @treycausey @JennyBryan Want to do d…
-    ## 5  705941645062217729    PBarmby @JennyBryan I am totally figuring ou…
-    ## 6  705934677761101826 treycausey @JennyBryan @UWCSSS Argh, I cannot m…
-    ## 7  705800022474911745     UWCSSS Seminar Wed: @JennyBryan on Happy Gi…
-    ## 8  705789525348507649     lapply @JennyBryan I was looking for a data…
-    ## 9  705586264926388224 treycausey @JennyBryan @kwbroman @hadleywickham…
-    ## 10 705525090902011904 sjmgarnier    @JennyBryan That's not helpful :-)
-    ## ..                ...        ...                                   ...
+    ##                    id      screenName                           text
+    ##                 (chr)           (chr)                          (chr)
+    ## 1  704818137456353281          tjmahr @JennyBryan would also add: A…
+    ## 2  704815949845819394          tjmahr @JennyBryan this is great. I …
+    ## 3  704813442348093442       jaimedash @JennyBryan @gvwilson gah the…
+    ## 4  704811393074249728    pasqui_dente            @JennyBryan class()
+    ## 5  704809712139821056            tpoi @JennyBryan @RallidaeRule And…
+    ## 6  704809290364805120            tpoi @JennyBryan @RallidaeRule But…
+    ## 7  704809092016164865            tpoi @JennyBryan @RallidaeRule CAR…
+    ## 8  704808779997548545 henrikbengtsson @JennyBryan "help the helper …
+    ## 9  704807505935921153   JHunterUnited @JennyBryan @gvwilson reminds…
+    ## 10 704805308909146112      Chr_Koenig @JennyBryan "add more backsla…
+    ## ..                ...             ...                            ...
 
 Write them out.
 
